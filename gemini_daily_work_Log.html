@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>업무 일지 작성 시스템</title>
+    <style>
+        /* 기존 스타일 유지 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+        }
+
+        /* 달력 스타일 */
+        .calendar {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .calendar th {
+            background-color: #f2f2f2;
+            padding: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .calendar td {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out; /* 부드러운 효과 추가 */
+        }
+
+        /* 현재 달이 아닌 날짜 스타일 */
+        .calendar td.other-month {
+            color: #aaa;
+            cursor: default; /* 클릭 비활성화 느낌 */
+        }
+        /* 현재 달 날짜 호버 효과 */
+        .calendar td:not(.other-month):hover {
+             background-color: #f0f0f0;
+        }
+
+        .calendar .today {
+            background-color: #4a6bff;
+            color: white;
+        }
+
+        .calendar .has-logs {
+            background-color: #e1f5e1;
+            font-weight: bold;
+        }
+
+        .calendar .selected {
+            background-color: #ffecd2 !important; /* !important 추가하여 우선순위 확보 */
+            font-weight: bold;
+            border: 2px solid #f8c471; /* 선택 강조 */
+        }
+
+        /* 오늘 날짜이면서 선택된 경우 */
+        .calendar .today.selected {
+            background-color: #3a5bef !important; /* 오늘+선택 시 더 진한 파랑 */
+            color: white;
+        }
+
+        /* 로그가 있으면서 선택된 경우 */
+         .calendar .has-logs.selected {
+            background-color: #fadf9e !important; /* 로그+선택 시 더 진한 노랑 */
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .calendar-nav {
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 18px;
+            padding: 5px 10px; /* 클릭 영역 확보 */
+        }
+        .calendar-nav:hover {
+            color: #4a6bff;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow: hidden; /* 컨테이너 내부 요소 넘침 방지 */
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .tabs {
+            display: flex;
+            background-color: #f2f2f2;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s, border-bottom 0.3s;
+            font-weight: bold;
+            border-bottom: 3px solid transparent; /* 기본 상태 테두리 공간 확보 */
+        }
+
+        .tab.active {
+            background-color: #fff;
+            border-bottom: 3px solid #4a6bff;
+        }
+
+        .tab:hover:not(.active) { /* 활성 탭 아닌 경우만 호버 효과 */
+            background-color: #e6e6e6;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px; /* 레이블 글자 크기 조정 */
+            color: #333;
+        }
+
+        input[type="date"],
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            font-family: inherit; /* body 폰트 상속 */
+        }
+        input:focus, select:focus, textarea:focus { /* 포커스 스타일 */
+             border-color: #4a6bff;
+             box-shadow: 0 0 0 2px rgba(74, 107, 255, 0.2);
+             outline: none;
+        }
+
+
+        textarea {
+            min-height: 100px; /* 기본 높이 조정 */
+            resize: vertical;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: flex-start; /* 위쪽 정렬 */
+            margin-bottom: 10px;
+            gap: 10px; /* 요소 간 간격 */
+        }
+
+        .task-input {
+            flex-grow: 1;
+        }
+        .task-input textarea { /* 작업 내용 textarea 높이 조정 */
+            min-height: 60px;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            background-color: #4a6bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            white-space: nowrap; /* 버튼 텍스트 줄바꿈 방지 */
+        }
+
+        .btn:hover {
+            background-color: #3a5bef;
+        }
+
+        .btn-danger {
+            background-color: #ff4a4a;
+        }
+
+        .btn-danger:hover {
+            background-color: #ef3a3a;
+        }
+
+        .btn-add {
+            background-color: #4aad5b;
+        }
+
+        .btn-add:hover {
+            background-color: #3a9d4b;
+        }
+
+        /* 작은 버튼 스타일 */
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+
+        .task-list {
+            margin-bottom: 15px; /* 작업 목록 아래 간격 조정 */
+        }
+
+        .form-buttons {
+            display: flex;
+            justify-content: flex-end; /* 버튼 오른쪽 정렬 */
+            gap: 10px; /* 버튼 간격 */
+            margin-top: 20px;
+        }
+
+        .task-buttons {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+
+        .record-list {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px; /* 테이블 글자 크기 조정 */
+        }
+
+        .record-list th,
+        .record-list td {
+            padding: 10px 12px; /* 패딩 조정 */
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            vertical-align: middle; /* 세로 중앙 정렬 */
+        }
+
+        .record-list th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            white-space: nowrap; /* 헤더 줄바꿈 방지 */
+        }
+
+        .record-list tr:hover {
+            background-color: #f9f9f9; /* 호버 색상 변경 */
+        }
+        /* 테이블 너비 조정 */
+        .record-list th:nth-child(1), .record-list td:nth-child(1) { width: 100px; } /* 날짜 */
+        .record-list th:nth-child(2), .record-list td:nth-child(2) { width: 100px; } /* 업무 구분 */
+        .record-list th:nth-child(4), .record-list td:nth-child(4) { width: 100px; } /* 상태 */
+        .record-list th:nth-child(5), .record-list td:nth-child(5) { width: 120px; } /* 보고 대상 */
+        .record-list th:nth-child(6), .record-list td:nth-child(6) { width: 130px; text-align: center;} /* 작업 */
+
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px; /* 배지 패딩 조정 */
+            border-radius: 12px; /* 배지 둥글기 조정 */
+            font-size: 12px; /* 배지 글자 크기 조정 */
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .badge-Migration { background-color: #ffecd2; color: #b78846; }
+        .badge-Lbaas { background-color: #e1f5e1; color: #4e9e4e; }
+        .badge-Amphora { background-color: #e8e1f5; color: #6b5ca5; }
+        .badge-infra { background-color: #d2e5ff; color: #4682b4; }
+        .badge-security { background-color: #ffe1e1; color: #b44646; }
+        /* 추가된 카테고리 색상 정의 */
+        .badge-migration { background-color: #e8e1f5; color: #6b5ca5; } /* Amphora과 동일하게 */
+        .badge-issue { background-color: #ffe1e1; color: #b44646; } /* 보안과 동일하게 */
+
+
+        .actions {
+            display: flex;
+            gap: 5px;
+            justify-content: center; /* 버튼 중앙 정렬 */
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .filter-search-area { /* 검색과 필터를 묶는 영역 */
+            display: flex;
+            flex-wrap: wrap; /* 너비 부족 시 줄바꿈 */
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center; /* 요소들 수직 정렬 */
+        }
+
+        .search-area {
+            display: flex;
+            flex-grow: 1; /* 남는 공간 차지 */
+            min-width: 200px; /* 최소 너비 */
+            gap: 5px;
+        }
+        .search-area input {
+             flex-grow: 1;
+        }
+
+        .filter-area {
+            display: flex;
+            flex-grow: 2; /* 검색 영역보다 더 많은 공간 차지 */
+            gap: 10px;
+            flex-wrap: wrap; /* 필터 항목 줄바꿈 */
+        }
+        .filter-area select, .filter-area input[type="date"] {
+            min-width: 150px; /* 필터 최소 너비 */
+            flex: 1; /* 가능한 공간 균등 분배 */
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: flex-end; /* 버튼 오른쪽 정렬 */
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5); /* 배경 어둡게 */
+            overflow-y: auto; /* 내용 길어지면 스크롤 */
+            padding: 50px 0; /* 위아래 여백 */
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 0 auto; /* 수평 중앙 정렬 */
+            padding: 25px 30px; /* 패딩 조정 */
+            border-radius: 8px; /* 둥글기 조정 */
+            width: 90%; /* 너비 조정 */
+            max-width: 700px; /* 최대 너비 제한 */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            position: relative; /* 닫기 버튼 위치 기준 */
+        }
+
+        .close {
+            position: absolute; /* 절대 위치 */
+            top: 10px; /* 위쪽 간격 */
+            right: 15px; /* 오른쪽 간격 */
+            color: #aaa;
+            font-size: 32px; /* 아이콘 크기 */
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1; /* 줄 간격 조정 */
+        }
+
+        .close:hover, .close:focus {
+            color: black;
+            text-decoration: none;
+        }
+        #modal-title { /* 모달 제목 스타일 */
+             margin-bottom: 20px;
+             font-size: 22px;
+             border-bottom: 1px solid #eee;
+             padding-bottom: 10px;
+        }
+        #modal-body p { /* 모달 내용 단락 스타일 */
+            margin-bottom: 10px;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+         #modal-body strong { /* 모달 내용 강조 스타일 */
+             display: inline-block;
+             min-width: 100px; /* 레이블 너비 고정 */
+             color: #555;
+         }
+         #modal-body ul {
+             margin-left: 120px; /* 들여쓰기 조정 */
+             margin-top: -10px; /* 위쪽 간격 조정 */
+             margin-bottom: 10px;
+         }
+         #modal-body li {
+             margin-bottom: 5px;
+         }
+
+        /* 반응형 스타일 */
+        @media (max-width: 992px) { /* 중간 화면 크기 */
+             .filter-search-area {
+                 flex-direction: column; /* 검색/필터 세로 배치 */
+                 align-items: stretch; /* 너비 100% */
+             }
+             .search-area { width: 100%; }
+             .filter-area { width: 100%; }
+        }
+
+        @media (max-width: 768px) {
+             body { padding: 10px; }
+             .container { padding: 0; }
+             h1 { font-size: 20px; padding: 15px 0; }
+             .tabs { justify-content: space-around; } /* 탭 균등 분배 */
+             .tab { padding: 12px 10px; font-size: 14px; }
+             .content { padding: 15px; }
+
+             /* 달력과 탭 컨테이너 분리 */
+             div[style*="display: flex;"] { /* 좀 더 구체적인 선택자 고려 필요 */
+                 flex-direction: column;
+             }
+             #calendar-container {
+                 width: 100%;
+                 margin-right: 0;
+                 margin-bottom: 15px;
+                 min-height: auto;
+                 padding: 10px;
+             }
+             .calendar td, .calendar th { padding: 6px; font-size: 13px;} /* 달력 셀 크기 조정 */
+             .calendar-nav { font-size: 16px; padding: 3px 8px;}
+
+             .task-item {
+                flex-direction: column;
+                align-items: stretch; /* 자식 요소 너비 100% */
+                gap: 5px;
+             }
+             .task-input { margin-right: 0; width: 100%; }
+             .task-input textarea { min-height: 50px;}
+
+             .form-buttons { flex-direction: column; gap: 10px; }
+             .btn { width: 100%; } /* 폼 버튼 너비 100% */
+
+             .record-list { font-size: 13px; }
+             .record-list th, .record-list td { padding: 8px 6px; }
+             /* 테이블 특정 컬럼 숨기기 (선택 사항) */
+             /* .record-list th:nth-child(5), .record-list td:nth-child(5) { display: none; } */ /* 보고 대상 숨기기 */
+
+             .modal-content {
+                 width: 95%;
+                 padding: 20px 15px;
+                 margin-top: 20px;
+                 margin-bottom: 20px;
+             }
+             #modal-title { font-size: 18px; }
+             #modal-body p { font-size: 14px; }
+             #modal-body strong { min-width: 80px; }
+             #modal-body ul { margin-left: 90px; }
+             .close { font-size: 28px; top: 5px; right: 10px;}
+
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>일일 업무 일지 시스템</h1>
+
+        <div style="display: flex;">
+            <div id="calendar-container">
+                <h3 style="text-align: center; margin-bottom: 15px;">달력</h3>
+                <div id="calendar"></div>
+            </div>
+
+            <div style="flex: 1;">
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('view')">업무 조회</div>
+                    <div class="tab" onclick="showTab('write')">업무 작성</div>
+                </div>
+
+                <div id="write-content" class="content hidden"> <!-- 초기 상태는 hidden으로 변경 -->
+                    <form id="work-log-form">
+                        <input type="hidden" id="edit-log-id" value=""> <!-- 수정 시 ID 저장용 -->
+                        <div class="form-group">
+                            <label for="work-date">작성 날짜</label>
+                            <input type="date" id="work-date" name="work-date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="work-category">업무 구분</label>
+                            <select id="work-category" name="work-category" required>
+                                <option value="">업무 구분 선택</option>
+                                <option value="Migration">Migration</option>
+                                <option value="Lbaas">Lbaas</option>
+                                <option value="Amphora">Amphora</option>
+                                <option value="infrastructure">운영표준화</option>
+                                <option value="security">보안</option>
+                                <option value="vol-manila">Manila</option>
+                                <option value="issue">장애대응</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="work-summary">업무 요약</label>
+                            <input type="text" id="work-summary" name="work-summary" placeholder="업무 요약을 간결하게 입력하세요" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>세부 작업 내용</label>
+                            <div class="task-list" id="task-list">
+                                <!-- 기본 작업 항목 1개 -->
+                                <div class="task-item">
+                                    <div class="task-input">
+                                        <textarea placeholder="세부 작업 내용을 입력하세요" required></textarea>
+                                    </div>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="removeTask(this)">삭제</button>
+                                </div>
+                            </div>
+                            <div class="task-buttons">
+                                <button type="button" class="btn btn-add btn-sm" onclick="addTask()">작업 추가</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="work-result">업무 결과</label>
+                            <select id="work-result" name="work-result" required>
+                                <option value="">업무 상태 선택</option>
+                                <option value="completed">완료</option>
+                                <option value="in-progress">진행중</option>
+                                <option value="planning">계획 단계</option>
+                                <option value="reported">보고 완료</option>
+                                <option value="issue">이슈 발생</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="work-reporter">보고 대상</label>
+                            <input type="text" id="work-reporter" name="work-reporter" placeholder="보고 대상(선택)">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="work-notes">비고</label>
+                            <textarea id="work-notes" name="work-notes" placeholder="추가 비고 사항(선택)"></textarea>
+                        </div>
+
+                        <div class="form-buttons">
+                            <button type="button" class="btn btn-danger" onclick="resetForm()">초기화</button>
+                            <button type="button" class="btn" onclick="saveWorkLog()">저장</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="view-content" class="content"> <!-- 초기 상태는 보이도록 변경 -->
+                    <div class="filter-search-area">
+                        <div class="search-area">
+                            <input type="text" id="search-input" placeholder="요약, 내용, 비고, 보고대상 검색">
+                            <button class="btn btn-sm" onclick="searchLogs()">검색</button>
+                        </div>
+                        <div class="filter-area">
+                            <select id="category-filter" title="업무 구분 필터">
+                                <option value="">모든 업무 구분</option>
+                                <option value="Migration">Migration</option>
+                                <option value="Lbaas">Lbaas</option>
+                                <option value="Amphora">Amphora</option>
+                                <option value="infrastructure">운영표준화</option>
+                                <option value="security">보안</option>
+                                <option value="vol-manila">Manila</option>
+                                <option value="issue">장애대응</option>
+                            </select>
+                            <select id="status-filter" title="상태 필터">
+                                <option value="">모든 상태</option>
+                                <option value="completed">완료</option>
+                                <option value="in-progress">진행중</option>
+                                <option value="planning">계획 단계</option>
+                                <option value="reported">보고 완료</option>
+                                <option value="issue">이슈 발생</option>
+                            </select>
+                            <input type="date" id="date-filter" title="날짜 필터">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-sm" onclick="applyFilters()">필터 적용</button>
+                        <button class="btn btn-sm btn-danger" onclick="resetFilters()">필터 초기화</button>
+                    </div>
+
+                    <table class="record-list" id="log-records">
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>업무 구분</th>
+                                <th>업무 요약</th>
+                                <th>상태</th>
+                                <th>보고 대상</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-list">
+                            <!-- 자바스크립트로 데이터 로드 -->
+                            <tr><td colspan="6" style="text-align: center;">업무 일지를 불러오는 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 상세 보기 모달 -->
+    <div id="detail-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">업무 상세 정보</h2>
+            <div id="modal-body">
+                <!-- 자바스크립트로 내용 로드 -->
+            </div>
+             <div style="text-align: right; margin-top: 20px;">
+                 <button class="btn btn-sm" onclick="editWorkLogFromModal()">수정</button>
+                 <button class="btn btn-sm btn-danger" onclick="closeModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let currentDate = new Date(); // 달력 현재 월 표시용
+        let selectedDate = null;      // 달력에서 선택된 날짜 (YYYY-MM-DD)
+        let previouslySelectedCell = null; // 이전에 선택된 달력 셀 DOM 요소
+        let currentEditLogId = null; // 현재 수정 중인 로그 ID
+
+        // --- 유틸리티 함수 ---
+        const el = (selector) => document.getElementById(selector);
+        const qSel = (selector) => document.querySelector(selector);
+        const qSelAll = (selector) => document.querySelectorAll(selector);
+
+        // --- 초기화 ---
+        window.onload = function() {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            el('work-date').value = todayStr; // 작성폼 오늘 날짜 기본값
+            selectedDate = todayStr;      // 오늘 날짜를 초기 선택 날짜로
+            el('date-filter').value = todayStr; // 조회 필터에도 오늘 날짜 기본값
+            renderCalendar();
+            showTab('view'); // 초기 탭: 업무 조회
+        };
+
+        // --- 탭 관리 ---
+        function showTab(tabName) {
+            qSelAll('.tab').forEach(tab => tab.classList.remove('active'));
+            el('write-content').classList.add('hidden');
+            el('view-content').classList.add('hidden');
+
+            if (tabName === 'view') {
+                el('view-content').classList.remove('hidden');
+                qSel('.tab:nth-child(1)').classList.add('active');
+                applyFilters(); // 조회 탭 이동 시 현재 필터로 목록 업데이트
+            } else if (tabName === 'write') {
+                el('write-content').classList.remove('hidden');
+                qSel('.tab:nth-child(2)').classList.add('active');
+                // 작성 탭 전환 시, 수정 중이 아니라면 선택된 날짜 반영
+                if (!currentEditLogId) {
+                    el('work-date').value = selectedDate || new Date().toISOString().slice(0, 10);
+                }
+            }
+        }
+
+        // --- 작성 폼 관리 ---
+        function addTask() {
+            const taskList = el('task-list');
+            const taskItem = document.createElement('div');
+            taskItem.className = 'task-item';
+            taskItem.innerHTML = `
+                <div class="task-input">
+                    <textarea placeholder="세부 작업 내용을 입력하세요" required></textarea>
+                </div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeTask(this)">삭제</button>
+            `;
+            taskList.appendChild(taskItem);
+            taskItem.querySelector('textarea').focus(); // 새로 추가된 항목에 포커스
+        }
+
+        function removeTask(button) {
+            const taskList = el('task-list');
+            if (taskList.children.length > 1) {
+                button.closest('.task-item').remove(); // .closest 사용
+            } else {
+                alert('최소 하나의 작업 항목은 유지해야 합니다.');
+            }
+        }
+
+        function resetForm() {
+            el('work-log-form').reset();
+            el('edit-log-id').value = ''; // 수정 ID 초기화
+            currentEditLogId = null;      // 수정 상태 해제
+            el('work-date').value = selectedDate || new Date().toISOString().slice(0, 10); // 날짜 복원
+
+            // 작업 목록 초기화 (첫 번째 항목 제외하고 삭제)
+            const taskList = el('task-list');
+            while (taskList.children.length > 1) {
+                taskList.removeChild(taskList.lastChild);
+            }
+            taskList.querySelector('textarea').value = ''; // 첫 번째 항목 내용 비우기
+            console.log("폼 초기화 완료");
+        }
+
+        // --- 데이터 관리 (LocalStorage) ---
+        function getWorkLogs() {
+            return JSON.parse(localStorage.getItem('workLogs')) || [];
+        }
+
+        function setWorkLogs(logs) {
+            localStorage.setItem('workLogs', JSON.stringify(logs));
+        }
+
+        function saveWorkLog() {
+            const form = el('work-log-form');
+            const logId = el('edit-log-id').value ? parseInt(el('edit-log-id').value) : null; // 수정 ID 확인
+            const date = el('work-date').value;
+            const summary = el('work-summary').value.trim();
+            const category = el('work-category').value;
+            const result = el('work-result').value;
+            const reporter = el('work-reporter').value.trim();
+            const notes = el('work-notes').value.trim();
+
+            if (!date || !summary || !category || !result) {
+                alert('작성 날짜, 업무 구분, 업무 요약, 업무 결과는 필수 항목입니다.');
+                return;
+            }
+
+            const tasks = [];
+            const taskTextareas = qSelAll('#task-list textarea');
+            for (let i = 0; i < taskTextareas.length; i++) {
+                const taskContent = taskTextareas[i].value.trim();
+                if (!taskContent) {
+                    alert(`세부 작업 내용 ${i + 1}번째 항목을 입력해주세요.`);
+                    taskTextareas[i].focus();
+                    return;
+                }
+                tasks.push(taskContent);
+            }
+
+            let workLogs = getWorkLogs();
+            const categoryName = el('work-category').options[el('work-category').selectedIndex].text;
+            const resultName = el('work-result').options[el('work-result').selectedIndex].text;
+
+            if (logId) { // 수정 모드
+                const index = workLogs.findIndex(log => log.id === logId);
+                if (index > -1) {
+                    workLogs[index] = { ...workLogs[index], date, summary, category, categoryName, tasks, result, resultName, reporter, notes };
+                    alert('업무 일지가 수정되었습니다.');
+                } else {
+                    alert('수정할 업무 일지를 찾을 수 없습니다.');
+                    return;
+                }
+            } else { // 새로 저장 모드
+                const newLog = {
+                    id: Date.now(), date, summary, category, categoryName, tasks, result, resultName, reporter, notes,
+                    createdAt: new Date().toISOString()
+                };
+                workLogs.push(newLog);
+                alert('업무 일지가 저장되었습니다.');
+            }
+
+            setWorkLogs(workLogs);
+            resetForm(); // 폼 초기화 (수정 상태 해제 포함)
+            renderCalendar(); // 달력 업데이트 (로그 유무 표시)
+            showTab('view'); // 저장/수정 후 조회 탭으로 이동
+        }
+
+        function deleteWorkLog(id) {
+            if (!confirm('이 업무 일지를 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.')) {
+                return;
+            }
+
+            let workLogs = getWorkLogs();
+            const logToDelete = workLogs.find(log => log.id === id);
+            if (!logToDelete) return;
+
+            workLogs = workLogs.filter(log => log.id !== id);
+            setWorkLogs(workLogs);
+
+            // 목록 업데이트 (현재 필터 적용)
+            applyFilters();
+
+            // 달력 업데이트 (로그 유무 반영)
+            const dateHadLog = logToDelete.date;
+            const remainingLogsOnDate = workLogs.some(log => log.date === dateHadLog);
+            if (!remainingLogsOnDate || selectedDate === dateHadLog) { // 로그가 없어졌거나, 선택된 날짜의 로그였으면 렌더링
+                 renderCalendar();
+            }
+
+            alert('업무 일지가 삭제되었습니다.');
+        }
+
+         // --- 업무 조회 및 필터링 ---
+        function loadWorkLogs() { // 모든 로그 로드 (필터링 전)
+             const workLogs = getWorkLogs();
+             displayLogsInTable(workLogs); // 전체 목록 우선 표시
+        }
+
+        function displayLogsInTable(logs) {
+             const logList = el('log-list');
+             logList.innerHTML = ''; // 기존 내용 비우기
+
+             if (!logs || logs.length === 0) {
+                 logList.innerHTML = '<tr><td colspan="6" style="text-align: center;">표시할 업무 일지가 없습니다.</td></tr>';
+                 return;
+             }
+
+             // 최신 날짜 순으로 정렬
+             logs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            logs.forEach(log => {
+                const row = document.createElement('tr');
+                row.dataset.logId = log.id; // 행에 ID 저장 (수정 시 활용 가능)
+
+                const formattedDate = formatDate(log.date);
+                const badgeClass = `badge-${log.category || 'Migration'}`; // 기본값 설정
+
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td><span class="badge ${badgeClass}">${log.categoryName || log.category}</span></td>
+                    <td>${escapeHtml(log.summary)}</td>
+                    <td>${log.resultName || log.result}</td>
+                    <td>${escapeHtml(log.reporter) || '-'}</td>
+                    <td class="actions">
+                        <button class="btn btn-sm" onclick="viewWorkLog(${log.id})">보기</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteWorkLog(${log.id})">삭제</button>
+                    </td>
+                `;
+                logList.appendChild(row);
+            });
+        }
+
+        function searchLogs() {
+            applyFilters(); // 검색 버튼 클릭 시 필터 적용 함수 호출
+        }
+
+        function applyFilters() {
+            const categoryFilter = el('category-filter').value;
+            const statusFilter = el('status-filter').value;
+            const dateFilter = el('date-filter').value;
+            const searchText = el('search-input').value.toLowerCase();
+
+            let workLogs = getWorkLogs();
+
+            const filteredLogs = workLogs.filter(log => {
+                const matchCategory = !categoryFilter || log.category === categoryFilter;
+                const matchStatus = !statusFilter || log.result === statusFilter;
+                const matchDate = !dateFilter || log.date === dateFilter;
+                const matchSearch = !searchText ||
+                    log.summary.toLowerCase().includes(searchText) ||
+                    log.tasks.some(task => task.toLowerCase().includes(searchText)) ||
+                    (log.notes && log.notes.toLowerCase().includes(searchText)) ||
+                    (log.reporter && log.reporter.toLowerCase().includes(searchText));
+
+                return matchCategory && matchStatus && matchDate && matchSearch;
+            });
+
+            displayLogsInTable(filteredLogs); // 필터링된 결과 표시
+        }
+
+        function resetFilters() {
+            el('category-filter').value = '';
+            el('status-filter').value = '';
+            el('date-filter').value = '';
+            el('search-input').value = '';
+
+            // 달력 선택 상태 초기화
+            if (previouslySelectedCell) {
+                previouslySelectedCell.classList.remove('selected');
+            }
+            selectedDate = null;
+            previouslySelectedCell = null;
+            renderCalendar(); // 달력 다시 그리기
+
+            applyFilters(); // 초기화된 필터로 전체 목록 로드
+        }
+
+        // --- 상세 보기 모달 ---
+        function viewWorkLog(id) {
+            const workLogs = getWorkLogs();
+            const log = workLogs.find(log => log.id === id);
+            if (!log) {
+                alert('업무 일지를 찾을 수 없습니다.'); return;
+            }
+            currentEditLogId = id; // 모달 열 때 수정 대상 ID 설정
+
+            el('modal-title').textContent = `${formatDate(log.date)} - ${escapeHtml(log.summary)}`;
+
+            let tasksHtml = '<ul style="list-style-type: disc; padding-left: 20px; margin-top: 5px;">';
+            log.tasks.forEach(task => {
+                tasksHtml += `<li>${escapeHtml(task)}</li>`;
+            });
+            tasksHtml += '</ul>';
+
+            el('modal-body').innerHTML = `
+                <p><strong>날짜:</strong> ${formatDate(log.date)}</p>
+                <p><strong>업무 구분:</strong> ${log.categoryName || log.category}</p>
+                <p><strong>업무 요약:</strong> ${escapeHtml(log.summary)}</p>
+                <p><strong>세부 작업 내용:</strong></p>
+                ${tasksHtml}
+                <p><strong>업무 상태:</strong> ${log.resultName || log.result}</p>
+                <p><strong>보고 대상:</strong> ${escapeHtml(log.reporter) || '-'}</p>
+                <p><strong>비고:</strong> ${escapeHtml(log.notes) || '-'}</p>
+            `;
+            el('detail-modal').style.display = 'block';
+        }
+
+        function closeModal() {
+            el('detail-modal').style.display = 'none';
+            el('modal-body').innerHTML = ''; // 내용 비우기
+            currentEditLogId = null; // 모달 닫을 때 수정 ID 초기화
+        }
+
+        // 모달에서 수정 버튼 클릭 시
+        function editWorkLogFromModal() {
+            if (!currentEditLogId) return;
+
+            const workLogs = getWorkLogs();
+            const log = workLogs.find(l => l.id === currentEditLogId);
+            if (!log) {
+                alert("수정할 로그 정보를 찾을 수 없습니다.");
+                closeModal();
+                return;
+            }
+
+            // 작성 폼으로 데이터 로드
+            el('edit-log-id').value = log.id;
+            el('work-date').value = log.date;
+            el('work-category').value = log.category;
+            el('work-summary').value = log.summary;
+            el('work-result').value = log.result;
+            el('work-reporter').value = log.reporter;
+            el('work-notes').value = log.notes;
+
+            // 작업 목록 로드
+            const taskList = el('task-list');
+            taskList.innerHTML = ''; // 기존 목록 비우기
+            log.tasks.forEach((task, index) => {
+                const taskItem = document.createElement('div');
+                taskItem.className = 'task-item';
+                taskItem.innerHTML = `
+                    <div class="task-input">
+                        <textarea required>${escapeHtml(task)}</textarea>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeTask(this)">삭제</button>
+                `;
+                taskList.appendChild(taskItem);
+            });
+            // 작업 항목이 하나도 없으면 기본 항목 추가
+            if (log.tasks.length === 0) addTask();
+
+            closeModal();   // 현재 모달 닫기
+            showTab('write'); // 작성 탭으로 이동
+            el('work-summary').focus(); // 요약 필드에 포커스
+        }
+
+
+        // --- 달력 렌더링 및 상호작용 ---
+        function renderCalendar() {
+            const calendarDiv = el('calendar');
+            calendarDiv.innerHTML = ''; // 비우기
+
+            // 헤더
+            const calendarHeader = document.createElement('div');
+            calendarHeader.className = 'calendar-header';
+            calendarHeader.innerHTML = `
+                <button class="calendar-nav prev-month">&lt;</button>
+                <span>${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1}월</span>
+                <button class="calendar-nav next-month">&gt;</button>
+            `;
+            calendarDiv.appendChild(calendarHeader);
+
+            // 헤더 버튼 이벤트 리스너
+            calendarHeader.querySelector('.prev-month').onclick = () => {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar();
+            };
+            calendarHeader.querySelector('.next-month').onclick = () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar();
+            };
+
+            // 테이블
+            const table = document.createElement('table');
+            table.className = 'calendar';
+            const thead = table.createTHead();
+            const tbody = table.createTBody();
+            const headerRow = thead.insertRow();
+            ['일', '월', '화', '수', '목', '금', '토'].forEach(day => {
+                const th = document.createElement('th');
+                th.textContent = day;
+                headerRow.appendChild(th);
+            });
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const firstDayOfMonth = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, month + 1, 0);
+            const firstDayWeekday = firstDayOfMonth.getDay(); // 0: Sun, 1: Mon, ...
+
+            let currentDay = new Date(year, month, 1 - firstDayWeekday); // 첫 주 시작일 계산
+
+            // 로그 데이터 확인
+            const workLogs = getWorkLogs();
+            const datesWithLogs = {};
+            workLogs.forEach(log => { datesWithLogs[log.date] = true; });
+
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 10);
+
+            previouslySelectedCell = null; // 렌더링 시 초기화
+
+            for (let i = 0; i < 6; i++) { // 최대 6주 표시
+                const row = tbody.insertRow();
+                for (let j = 0; j < 7; j++) {
+                    const cell = row.insertCell();
+                    const cellDateStr = currentDay.toISOString().slice(0, 10);
+                    cell.textContent = currentDay.getDate();
+                    cell.dataset.date = cellDateStr;
+
+                    if (currentDay.getMonth() !== month) {
+                        cell.classList.add('other-month');
+                    } else {
+                        // 오늘 날짜
+                        if (cellDateStr === todayStr) cell.classList.add('today');
+                        // 로그 있음
+                        if (datesWithLogs[cellDateStr]) cell.classList.add('has-logs');
+                        // 선택된 날짜
+                        if (cellDateStr === selectedDate) {
+                            cell.classList.add('selected');
+                            previouslySelectedCell = cell;
+                        }
+
+                        // 클릭 이벤트 (현재 달 날짜에만)
+                        cell.onclick = function() {
+                            const clickedDate = this.dataset.date;
+                            selectedDate = clickedDate;
+
+                            // 관련 필드 업데이트
+                            el('work-date').value = clickedDate;
+                            el('date-filter').value = clickedDate;
+
+                            // 필터 적용 (목록 업데이트)
+                            applyFilters();
+
+                            // 스타일 업데이트 (기존 선택 해제, 새 선택 적용)
+                            if (previouslySelectedCell && previouslySelectedCell !== this) {
+                                previouslySelectedCell.classList.remove('selected');
+                            }
+                            this.classList.add('selected');
+                            previouslySelectedCell = this;
+                        };
+                    }
+                    currentDay.setDate(currentDay.getDate() + 1); // 다음 날짜로
+                }
+                 // 다음 주의 첫 날이 다음 달이고, 마지막 날보다 크면 더 이상 그리지 않음
+                 if (currentDay > lastDayOfMonth && currentDay.getDay() === 0) break;
+            }
+            calendarDiv.appendChild(table);
+        }
+
+        // --- 기타 유틸리티 ---
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            try {
+                const date = new Date(dateString + 'T00:00:00'); // 시간 정보 추가하여 정확한 파싱 유도
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}/${month}/${day}`;
+            } catch (e) {
+                console.error("날짜 형식 변환 오류:", dateString, e);
+                return dateString; // 오류 시 원본 반환
+            }
+        }
+
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
+        // --- 전역 이벤트 리스너 ---
+        // ESC 키로 모달 닫기
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && el('detail-modal').style.display === 'block') {
+                closeModal();
+            }
+        });
+
+        // 모달 바깥 영역 클릭 시 닫기
+        window.addEventListener('click', (e) => {
+            if (e.target === el('detail-modal')) {
+                closeModal();
+            }
+        });
+
+    </script>
+</body>
+</html>
