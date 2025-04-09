@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>업무 일지 작성 시스템</title>
+    <!-- 외부 CSS 파일 연결 -->
+    <link rel="stylesheet" href="style.css">
+    <!-- SheetJS 라이브러리 추가 (CDN) - Excel 내보내기용 (script.js 보다 먼저 로드) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>일일 업무 일지 시스템</h1>
+
+        <!-- Main Layout: Calendar + Content -->
+        <div class="main-layout">
+
+            <!-- Calendar Area -->
+            <div id="calendar-container">
+                <h3>달력</h3>
+                <div id="calendar"></div>
+                 <!-- Quick Add Button Container -->
+                <div id="add-task-button-container" class="hidden">
+                    <button id="add-task-for-date-button" class="btn" onclick="openQuickAddModal()">
+                        <span id="selected-date-display"></span> 이 날짜에 업무 추가
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabs and Content Area -->
+            <div class="main-content">
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('view')">업무 조회</div>
+                    <div class="tab" onclick="showTab('write')">업무 작성</div>
+                </div>
+
+                <!-- Write Tab Content -->
+                <div id="write-content" class="content hidden">
+                    <form id="work-log-form">
+                        <input type="hidden" id="edit-log-id" value="">
+                        <div class="form-group">
+                            <label for="work-date">작성 날짜</label>
+                            <input type="date" id="work-date" name="work-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="work-category">업무 구분 <span style="color:red;">*</span></label>
+                            <select id="work-category" name="work-category" required>
+                                <option value="">업무 구분 선택</option>
+                                <option value="Migration">Migration</option>
+                                <option value="Lbaas">Lbaas</option>
+                                <option value="Amphora">Amphora</option>
+                                <option value="infrastructure">운영표준화</option>
+                                <option value="security">보안</option>
+                                <option value="vol-manila">Manila</option>
+                                <option value="issue">장애대응</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                             <label for="work-detail-category">항목 상세</label>
+                             <select id="work-detail-category" name="work-detail-category">
+                                 <option value="">항목 상세 선택 (선택)</option>
+                                 <option value="운영 표준화">운영 표준화</option>
+                                 <option value="로그 분석">로그 분석</option>
+                                 <option value="업무 지원">업무 지원</option>
+                                 <option value="테스트">테스트</option>
+                                 <option value="증설">증설</option>
+                                 <option value="보안검토">보안검토</option>
+                                 <option value="검증 테스트">검증 테스트</option>
+                                 <option value="트러블슈팅">트러블슈팅</option>
+                             </select>
+                         </div>
+                        <div class="form-group">
+                            <label for="work-summary">업무 요약 <span style="color:red;">*</span></label>
+                            <input type="text" id="work-summary" name="work-summary" placeholder="업무 요약을 간결하게 입력하세요" required>
+                        </div>
+                        <div class="form-group">
+                            <label>세부 작업 내용 <span style="color:red;">*</span></label>
+                            <div class="task-list" id="task-list">
+                                <div class="task-item">
+                                    <div class="task-input">
+                                        <textarea placeholder="세부 작업 내용을 입력하세요" required></textarea>
+                                    </div>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="removeTask(this)">삭제</button>
+                                </div>
+                            </div>
+                            <div class="task-buttons">
+                                <button type="button" class="btn btn-add btn-sm" onclick="addTask()">작업 추가</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                             <label for="work-result">업무 결과 <span style="color:red;">*</span></label>
+                             <select id="work-result" name="work-result" required>
+                                 <option value="">업무 상태 선택</option>
+                                 <option value="completed">완료</option>
+                                 <option value="in-progress">진행중</option>
+                                 <option value="planning">계획 단계</option>
+                                 <option value="reported">보고 완료</option>
+                                 <option value="issue">이슈 발생</option>
+                             </select>
+                         </div>
+                        <div class="form-group">
+                            <label for="work-notes">비고</label>
+                            <textarea id="work-notes" name="work-notes" placeholder="추가 비고 사항(선택)"></textarea>
+                        </div>
+                        <div class="form-buttons">
+                            <button type="button" class="btn btn-danger" onclick="resetForm()">초기화</button>
+                            <button type="button" class="btn btn-save" onclick="saveWorkLog()">저장</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- View Tab Content -->
+                <div id="view-content" class="content">
+                     <!-- Filters -->
+                     <div class="filter-search-area">
+                        <div class="search-area">
+                             <input type="text" id="search-input" placeholder="요약, 내용, 비고 검색">
+                             <button class="btn btn-sm" onclick="searchLogs()">검색</button>
+                        </div>
+                        <div class="filter-area">
+                            <select id="category-filter" title="업무 구분 필터">
+                                <option value="">모든 업무 구분</option>
+                                <option value="Migration">Migration</option>
+                                <option value="Lbaas">Lbaas</option>
+                                <option value="Amphora">Amphora</option>
+                                <option value="infrastructure">운영표준화</option>
+                                <option value="security">보안</option>
+                                <option value="vol-manila">Manila</option>
+                                <option value="issue">장애대응</option>
+                            </select>
+                            <select id="status-filter" title="상태 필터">
+                                <option value="">모든 상태</option>
+                                <option value="completed">완료</option>
+                                <option value="in-progress">진행중</option>
+                                <option value="planning">계획 단계</option>
+                                <option value="reported">보고 완료</option>
+                                <option value="issue">이슈 발생</option>
+                            </select>
+                            <input type="date" id="date-filter" title="날짜 필터" onchange="syncCalendarWithDateInput()">
+                        </div>
+                     </div>
+                     <!-- Action Buttons (Filter, Reset, Export) -->
+                     <div class="button-group">
+                         <button class="btn btn-sm" onclick="applyFilters()">필터 적용</button>
+                         <button class="btn btn-sm btn-danger" onclick="resetFilters()">필터 초기화</button>
+                         <button class="btn btn-sm" onclick="exportToTXT()" title="TXT 파일로 저장">TXT 내보내기</button>
+                         <button class="btn btn-sm btn-save" onclick="exportToExcel()" title="Excel 파일(.xlsx)로 저장">엑셀 내보내기</button>
+                     </div>
+                     <!-- Log Table Container (for horizontal scroll) -->
+                     <div class="table-container">
+                         <table class="record-list" id="log-records">
+                             <thead>
+                                 <tr>
+                                     <th>날짜</th>
+                                     <th>업무 구분</th>
+                                     <th>업무 요약</th>
+                                     <th>상태</th>
+                                     <th>작업</th>
+                                 </tr>
+                             </thead>
+                             <tbody id="log-list">
+                                 <tr><td colspan="5" style="text-align: center;">표시할 업무 일지가 없습니다.</td></tr>
+                             </tbody>
+                         </table>
+                    </div>
+                </div> <!-- End of view-content -->
+            </div> <!-- End of main-content -->
+        </div> <!-- End of main-layout -->
+    </div> <!-- End of container -->
+
+    <!-- Detail View Modal -->
+    <div id="detail-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()" title="닫기">&times;</span>
+            <h2 id="modal-title">업무 상세 정보</h2>
+            <div id="modal-body"></div>
+            <div class="form-buttons">
+                <button class="btn btn-sm" onclick="editWorkLogFromModal()">수정</button>
+                <button class="btn btn-sm btn-danger" onclick="closeModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Add Task Modal -->
+    <div id="add-task-modal" class="modal">
+        <div class="modal-content">
+             <span class="close" onclick="closeQuickAddModal()" title="닫기">&times;</span>
+             <h2 id="quick-modal-title">빠른 업무 추가</h2>
+             <form id="quick-add-form" onsubmit="event.preventDefault(); saveQuickTask();">
+                <input type="hidden" id="quick-add-target-date">
+                <div class="form-group">
+                    <label for="quick-add-category">업무 구분 <span>*</span></label>
+                    <select id="quick-add-category" required>
+                        <option value="">업무 구분 선택</option>
+                        <option value="Migration">Migration</option>
+                        <option value="Lbaas">Lbaas</option>
+                        <option value="Amphora">Amphora</option>
+                        <option value="infrastructure">운영표준화</option>
+                        <option value="security">보안</option>
+                        <option value="vol-manila">Manila</option>
+                        <option value="issue">장애대응</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quick-add-detail-category">항목 상세</label>
+                    <select id="quick-add-detail-category">
+                         <option value="">항목 상세 선택 (선택)</option>
+                         <option value="운영 표준화">운영 표준화</option>
+                         <option value="로그 분석">로그 분석</option>
+                         <option value="업무 지원">업무 지원</option>
+                         <option value="테스트">테스트</option>
+                         <option value="증설">증설</option>
+                         <option value="보안검토">보안검토</option>
+                         <option value="검증 테스트">검증 테스트</option>
+                         <option value="트러블슈팅">트러블슈팅</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quick-add-summary">업무 요약 <span>*</span></label>
+                    <input type="text" id="quick-add-summary" placeholder="간단한 업무 내용을 입력하세요" required>
+                </div>
+                 <div class="form-group">
+                     <label for="quick-add-details">세부 작업 내용</label>
+                     <textarea id="quick-add-details" placeholder="세부 작업 내용을 입력하세요 (선택, 여러 줄 가능)" rows="3"></textarea>
+                 </div>
+                <div class="form-group">
+                    <label for="quick-add-result">업무 결과 <span>*</span></label>
+                    <select id="quick-add-result" required>
+                        <option value="">업무 상태 선택</option>
+                        <option value="completed">완료</option>
+                        <option value="in-progress">진행중</option>
+                        <option value="planning">계획 단계</option>
+                        <option value="reported">보고 완료</option>
+                        <option value="issue">이슈 발생</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quick-add-notes">비고</label>
+                    <textarea id="quick-add-notes" placeholder="추가 비고 사항(선택)" rows="3"></textarea>
+                </div>
+                <div class="form-buttons">
+                    <button type="button" class="btn btn-danger" onclick="closeQuickAddModal()">취소</button>
+                    <button type="submit" class="btn btn-save">저장</button>
+                </div>
+             </form>
+        </div>
+    </div>
+
+    <!-- 외부 JavaScript 파일 연결 (body 태그 닫기 직전, defer 속성 사용) -->
+    <script src="script.js" defer></script>
+</body>
+</html>
